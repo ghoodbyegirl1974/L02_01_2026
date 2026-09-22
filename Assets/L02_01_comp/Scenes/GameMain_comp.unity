@@ -512,9 +512,6 @@ MonoBehaviour:
   pitchAngle: 30
   forceMode: 1
   distanceCalculator: {fileID: 0}
-  playerInput: {fileID: 878868378}
-  launchActionName: Launch
-  resetActionName: Reset
 --- !u!4 &878868377
 Transform:
   m_ObjectHideFlags: 0
@@ -599,13 +596,18 @@ MonoBehaviour:
   powerBarImage: {fileID: 1073740363}
   statusText: {fileID: 1866669214}
   ballLauncher: {fileID: 878868376}
-  maxLaunchPower: 90
+  maxLaunchPower: 22
   basePitchAngle: 30
+  maxZoneYawAngle: 10
   maxMissYawAngle: 15
+  impactZoneMinPowerRatio: 0.97
+  missMinPowerRatio: 0.85
   gaugeSpeed: 1
   impactRatio: 0.9
+  impactZoneWidth: 0.1
   playerInput: {fileID: 878868378}
   tapActionName: Launch
+  resetActionName: Reset
 --- !u!1 &961739749
 GameObject:
   m_ObjectHideFlags: 0
@@ -737,7 +739,7 @@ Transform:
   m_GameObject: {fileID: 961739749}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0.15, z: -10}
+  m_LocalPosition: {x: 0, y: 4.77, z: -14.42}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -849,7 +851,7 @@ Rigidbody:
   serializedVersion: 5
   m_Mass: 0.145
   m_LinearDamping: 0
-  m_AngularDamping: 0.05
+  m_AngularDamping: 2
   m_CenterOfMass: {x: 0, y: 0, z: 0}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
   m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -1006,7 +1008,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1562058616}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: bbafc9787e0f7488da1ad78bf399ba1e, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0

@@ -28,7 +28,23 @@ public class GolfShotUI_comp : MonoBehaviour
     [SerializeField] private BallLauncher_comp ballLauncher;
     [SerializeField] private float maxLaunchPower = 150f; // 最大パワー
     [SerializeField] private float basePitchAngle = 30f;  // 基本打ち出し角
-    [SerializeField] private float maxMissYawAngle = 15f; // インパクト失敗時の最大左右ズレ角度
+
+    // ★ 角度ブレ設定（Zone内とZone外で分離）
+    [Tooltip("ImpactZone内の端ギリギリで発生する最大ブレ角度（度）")]
+    [SerializeField] private float maxZoneYawAngle = 10f; 
+
+    [Tooltip("ImpactZoneを完全に外した（ミス）際の最大左右ズレ角度（度）")]
+    [SerializeField] private float maxMissYawAngle = 25f; 
+
+    // ★ パワーランダム減衰設定
+    [Header("Power Variation Settings")]
+    [Tooltip("ImpactZone内でのショット時のパワー下限倍率 (0.97 = 97%〜100%のランダム)")]
+    [Range(0.5f, 1.0f)]
+    [SerializeField] private float impactZoneMinPowerRatio = 0.97f;
+
+    [Tooltip("ImpactZone外（ミス）でのショット時のパワー下限倍率 (0.85 = 85%〜100%のランダム)")]
+    [Range(0.1f, 1.0f)]
+    [SerializeField] private float missMinPowerRatio = 0.85f;
 
     [Header("Gauge Settings")]
     [SerializeField] private float gaugeSpeed = 2.0f;     // ゲージ移動速度
@@ -38,9 +54,14 @@ public class GolfShotUI_comp : MonoBehaviour
     [Range(0.7f, 0.95f)]
     [SerializeField] private float impactRatio = 0.9f;    // 0.9 の位置
 
+    [Tooltip("インパクトゾーンの全体の幅比率 (0.1 の場合、0.85 〜 0.95 がゾーン内)")]
+    [Range(0.01f, 0.3f)]
+    [SerializeField] private float impactZoneWidth = 0.1f; // ★Zoneの幅設定を追加
+
     [Header("Input System Settings")]
     [SerializeField] private PlayerInput playerInput;
-    [SerializeField] private string tapActionName = "Launch"; // PlayerInput上のアクション名
+    [SerializeField] private string tapActionName = "Launch"; // PlayerInput上のショットアクション名
+    [SerializeField] private string resetActionName = "Reset"; // PlayerInput上のリセットアクション名（Rキー等）
 
     private ShotState currentState = ShotState.Ready;
     private float cursorValue = 0.9f;   // 0.0 (左端: MAX) 〜 1.0 (右端)
@@ -48,7 +69,9 @@ public class GolfShotUI_comp : MonoBehaviour
     private float selectedImpact = 0f; // 決定されたインパクトのズレ
     private float barWidth = 0f;
     private float barHeight = 0f;
+
     private InputAction tapAction;
+    private InputAction resetAction;
 
     // 連続タップ誤動作防止用の変数
     private float lastTapTime = 0f;
@@ -69,6 +92,13 @@ public class GolfShotUI_comp : MonoBehaviour
                 tapAction.performed += OnTapInput;
                 tapAction.Enable();
             }
+
+            resetAction = playerInput.actions.FindAction(resetActionName);
+            if (resetAction != null)
+            {
+                resetAction.performed += OnResetInput;
+                resetAction.Enable();
+            }
         }
     }
 
@@ -78,12 +108,17 @@ public class GolfShotUI_comp : MonoBehaviour
         {
             tapAction.performed -= OnTapInput;
         }
+
+        if (resetAction != null)
+        {
+            resetAction.performed -= OnResetInput;
+        }
     }
 
     private void Start()
     {
         InitializeGaugeDimensions();
-        ResetUI();
+        ResetAll();
     }
 
     private void InitializeGaugeDimensions()
@@ -97,34 +132,29 @@ public class GolfShotUI_comp : MonoBehaviour
     }
 
     /// <summary>
-    /// ★powerBarMask と powerBarImage のサイズ・位置関係をプログラミングで初期セットアップ
+    /// powerBarMask と powerBarImage のサイズ・位置関係を初期セットアップ
     /// </summary>
     private void SetupPowerBarTransform()
     {
         if (powerBarMask == null || gaugeBar == null) return;
 
         // --- 1. 親（powerBarMask）の設定 ---
-        // Pivotを右中央(1.0, 0.5)にして、右端から左へマスク領域が伸び縮みするように設定
         powerBarMask.pivot = new Vector2(1.0f, 0.5f);
         powerBarMask.anchorMin = new Vector2(0.5f, 0.5f);
         powerBarMask.anchorMax = new Vector2(0.5f, 0.5f);
 
-        // インパクト位置（右側のスタート地点）のX座標を計算
         float leftX = -barWidth * gaugeBar.pivot.x;
         float rightX = barWidth * (1f - gaugeBar.pivot.x);
         float impactXPos = Mathf.Lerp(leftX, rightX, impactRatio);
 
-        // マスク自体の基準位置（右端＝インパクト位置）
         powerBarMask.anchoredPosition = new Vector2(impactXPos, 0f);
 
         // --- 2. 子（powerBarImage）の設定 ---
         if (powerBarImage != null)
         {
-            // 子Imageのサイズは「最大パワー時の固定サイズ（引き伸ばさないサイズ）」に固定
             float maxPowerBarWidth = barWidth * impactRatio;
             powerBarImage.sizeDelta = new Vector2(maxPowerBarWidth, barHeight);
 
-            // 子ImageのPivotも右中央(1.0, 0.5)にし、親の右端に基準位置を合わせる
             powerBarImage.pivot = new Vector2(1.0f, 0.5f);
             powerBarImage.anchorMin = new Vector2(1.0f, 0.5f);
             powerBarImage.anchorMax = new Vector2(1.0f, 0.5f);
@@ -137,12 +167,11 @@ public class GolfShotUI_comp : MonoBehaviour
         switch (currentState)
         {
             case ShotState.PowerSelecting:
-                // 右(0.9)から左(0.0)に向かって移動（パワー増加）
                 cursorValue -= Time.deltaTime * gaugeSpeed;
                 if (cursorValue <= 0.0f)
                 {
                     cursorValue = 0.0f;
-                    selectedPower = 1.0f; // 左端超過時は自動折り返し（100%確定）
+                    selectedPower = 1.0f;
                     currentState = ShotState.ImpactSelecting;
                     lastTapTime = Time.time;
                 }
@@ -151,7 +180,6 @@ public class GolfShotUI_comp : MonoBehaviour
                 break;
 
             case ShotState.ImpactSelecting:
-                // 左(0.0)から右(1.0)に向かって移動（インパクト合わせ）
                 cursorValue += Time.deltaTime * gaugeSpeed;
                 if (cursorValue >= 1.0f)
                 {
@@ -186,26 +214,55 @@ public class GolfShotUI_comp : MonoBehaviour
                 break;
 
             case ShotState.ImpactSelecting:
-                float missDistance = Mathf.Abs(cursorValue - impactRatio);
-                selectedImpact = missDistance / impactRatio;
                 ExecuteShot();
                 break;
         }
+    }
+
+    private void OnResetInput(InputAction.CallbackContext context)
+    {
+        if (!context.performed) return;
+        ResetAll();
     }
 
     private void ExecuteShot()
     {
         currentState = ShotState.Executed;
 
-        float finalPower = selectedPower * maxLaunchPower;
-        float missRatio = Mathf.Clamp01(selectedImpact);
-        float yawOffset = (Random.value > 0.5f ? 1f : -1f) * missRatio * maxMissYawAngle;
+        float yawOffset = 0f;
+        float powerMultiplier = 1.0f;
+
+        float halfZoneWidth = impactZoneWidth / 2.0f;
+        float minZone = impactRatio - halfZoneWidth;
+        float maxZone = impactRatio + halfZoneWidth;
+
+        if (cursorValue >= minZone && cursorValue <= maxZone)
+        {
+            float normalizedDistance = (cursorValue - impactRatio) / halfZoneWidth;
+            yawOffset = normalizedDistance * maxZoneYawAngle;
+            powerMultiplier = Random.Range(impactZoneMinPowerRatio, 1.0f);
+        }
+        else
+        {
+            if (cursorValue < minZone)
+            {
+                yawOffset = -maxMissYawAngle;
+            }
+            else
+            {
+                yawOffset = maxMissYawAngle;
+            }
+
+            powerMultiplier = Random.Range(missMinPowerRatio, 1.0f);
+        }
+
+        float finalPower = selectedPower * powerMultiplier * maxLaunchPower;
 
         string impactMsg = "NICE SHOT!!";
-        if (missRatio > 0.15f) impactMsg = "BAD SHOT!";
-        else if (missRatio > 0.05f) impactMsg = "GOOD SHOT";
+        if (Mathf.Abs(yawOffset) >= maxMissYawAngle) impactMsg = "BAD SHOT!";
+        else if (Mathf.Abs(yawOffset) > 0f) impactMsg = "GOOD SHOT";
 
-        UpdateStatusText($"{impactMsg} (Power: {Mathf.RoundToInt(selectedPower * 100)}%)");
+        UpdateStatusText($"{impactMsg} (Power: {Mathf.RoundToInt(selectedPower * powerMultiplier * 100)}%, Yaw: {yawOffset:F1}°) - Press R to Reset");
 
         if (ballLauncher != null)
         {
@@ -216,8 +273,23 @@ public class GolfShotUI_comp : MonoBehaviour
 
     private void ExecuteShotWithMiss()
     {
-        selectedImpact = 1.0f;
         ExecuteShot();
+    }
+
+    /// <summary>
+    /// UIおよびボールの双方を完全初期化（Rキー押下時・スタート時共通）
+    /// </summary>
+    [ContextMenu("Reset All")]
+    public void ResetAll()
+    {
+        // 1. UIの初期化
+        ResetUI();
+
+        // 2. ボール位置・物理・距離計測の初期化
+        if (ballLauncher != null)
+        {
+            ballLauncher.ResetBall();
+        }
     }
 
     public void ResetUI()
@@ -248,9 +320,6 @@ public class GolfShotUI_comp : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// ★Mask（親）の幅だけを伸縮させてパワーゲージの表示範囲を更新する
-    /// </summary>
     private void UpdatePowerBarFill()
     {
         if (powerBarMask == null) return;
@@ -266,7 +335,6 @@ public class GolfShotUI_comp : MonoBehaviour
             powerRatio = selectedPower;
         }
 
-        // 最大幅 × パワー割合 でマスクの幅を設定（高さを維持し、横幅だけ変化）
         float maxPowerBarWidth = barWidth * impactRatio;
         powerBarMask.sizeDelta = new Vector2(maxPowerBarWidth * powerRatio, barHeight);
     }

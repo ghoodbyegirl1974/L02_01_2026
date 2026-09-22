@@ -20,52 +20,18 @@ public class BallLauncher_comp : MonoBehaviour
     [Tooltip("飛距離計測コンポーネントへの参照")]
     [SerializeField] private DistanceCalculator_comp distanceCalculator;
 
-    [Header("Input System Settings")]
-    [SerializeField] private PlayerInput playerInput;
-    [SerializeField] private string launchActionName = "Launch";
-    [SerializeField] private string resetActionName = "Reset";
-
-    private InputAction launchAction;
-    private InputAction resetAction;
-
-private void Awake()
-{
-    if (playerInput == null) playerInput = GetComponent<PlayerInput>();
-    
-    // 【修正】自身ではなく、ターゲットである targetRigidbody (Sphere) から取得する
-    if (distanceCalculator == null && targetRigidbody != null)
+    private void Awake()
     {
-        distanceCalculator = targetRigidbody.GetComponent<DistanceCalculator_comp>();
+        if (distanceCalculator == null && targetRigidbody != null)
+        {
+            distanceCalculator = targetRigidbody.GetComponent<DistanceCalculator_comp>();
+        }
     }
-}
 
     private void Start()
     {
         ResetBall();
     }
-
-    private void OnEnable()
-    {
-        if (playerInput != null && playerInput.actions != null)
-        {
-            /*
-            launchAction = playerInput.actions.FindAction(launchActionName);
-            Debug.Log("launchAction = " + launchAction.ToSafeString());
-            if (launchAction != null) launchAction.performed += OnLaunchInput;
-            */
-            resetAction = playerInput.actions.FindAction(resetActionName);
-            if (resetAction != null) resetAction.performed += OnResetInput;
-        }
-    }
-
-    private void OnDisable()
-    {
-        //if (launchAction != null) launchAction.performed -= OnLaunchInput;
-        if (resetAction != null) resetAction.performed -= OnResetInput;
-    }
-
-    private void OnLaunchInput(InputAction.CallbackContext context) => LaunchBall();
-    private void OnResetInput(InputAction.CallbackContext context) => ResetBall();
 
     /// <summary>
     /// ボールを初期位置に移動させ、物理挙動を完全に静止・固定状態にする
@@ -124,6 +90,7 @@ private void Awake()
             distanceCalculator.StartMeasurement();
         }
     }
+
     /// <summary>
     /// ゴルフUI側からショットのパワーと角度をセットする
     /// </summary>
