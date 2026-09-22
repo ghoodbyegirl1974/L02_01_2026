@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.InputSystem;
@@ -28,6 +29,10 @@ public class GolfShotUI_comp : MonoBehaviour
     [SerializeField] private BallLauncher_comp ballLauncher;
     [SerializeField] private float maxLaunchPower = 150f; // 最大パワー
     [SerializeField] private float basePitchAngle = 30f;  // 基本打ち出し角
+
+    [Header("Camera Settings")]
+    [SerializeField] private CameraSwitcher_comp cameraSwitcher; // ★カメラ切り替えコンポーネント参照
+    [SerializeField] private float cameraSwitchDelay = 0.5f;     // ★ショット後、サブカメラに切り替えるまでの遅延時間(秒)
 
     // ★ 角度ブレ設定（Zone内とZone外で分離）
     [Tooltip("ImpactZone内の端ギリギリで発生する最大ブレ角度（度）")]
@@ -76,6 +81,8 @@ public class GolfShotUI_comp : MonoBehaviour
     // 連続タップ誤動作防止用の変数
     private float lastTapTime = 0f;
     private const float tapCooldown = 0.15f; // 150ミリ秒以内の連打・連続イベントをガード
+
+    private Coroutine cameraSwitchCoroutine; // ★コルーチンの二重実行を防ぐためのキャッシュ変数
 
     private void Awake()
     {
@@ -268,6 +275,23 @@ public class GolfShotUI_comp : MonoBehaviour
         {
             ballLauncher.SetShotParameters(finalPower, basePitchAngle, yawOffset);
             ballLauncher.LaunchBall();
+
+            // ★ 一定時間後にサブカメラへ切り替えるコルーチンを開始
+            if (cameraSwitchCoroutine != null) StopCoroutine(cameraSwitchCoroutine);
+            cameraSwitchCoroutine = StartCoroutine(SwitchCameraDelayed());
+        }
+    }
+
+    /// <summary>
+    /// ★ 指定された時間（cameraSwitchDelay秒）待ってからSubCamera01へ切り替えるコルーチン
+    /// </summary>
+    private IEnumerator SwitchCameraDelayed()
+    {
+        yield return new WaitForSeconds(cameraSwitchDelay);
+
+        if (cameraSwitcher != null)
+        {
+            cameraSwitcher.SwitchToSubCamera01();
         }
     }
 
@@ -282,10 +306,22 @@ public class GolfShotUI_comp : MonoBehaviour
     [ContextMenu("Reset All")]
     public void ResetAll()
     {
-        // 1. UIの初期化
+        // 1. カメラタイマーの停止＆メインカメラへの復帰
+        if (cameraSwitchCoroutine != null)
+        {
+            StopCoroutine(cameraSwitchCoroutine);
+            cameraSwitchCoroutine = null;
+        }
+
+        if (cameraSwitcher != null)
+        {
+            cameraSwitcher.SwitchToMainCamera();
+        }
+
+        // 2. UIの初期化
         ResetUI();
 
-        // 2. ボール位置・物理・距離計測の初期化
+        // 3. ボール位置・物理・距離計測の初期化
         if (ballLauncher != null)
         {
             ballLauncher.ResetBall();
