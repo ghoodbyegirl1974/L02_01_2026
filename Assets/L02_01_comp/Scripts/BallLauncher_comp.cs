@@ -31,6 +31,12 @@ public class BallLauncher_comp : MonoBehaviour
     [Tooltip("飛距離計測コンポーネントへの参照")]
     [SerializeField] private DistanceCalculator_comp distanceCalculator;
 
+    // --- 【外部参照用プロパティ（追加部分）】 ---
+    public Rigidbody TargetRigidbody => targetRigidbody;
+    public Vector3 InitialPosition => initialPosition;
+    public float MaxLaunchPower => maxLaunchPower;
+    public float BasePitchAngle => basePitchAngle;
+
     private void Awake()
     {
         if (distanceCalculator == null && targetRigidbody != null)

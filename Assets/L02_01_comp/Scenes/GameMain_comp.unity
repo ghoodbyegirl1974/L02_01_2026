@@ -464,6 +464,58 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 50, y: -30, z: 0}
+--- !u!1 &573468246
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 573468248}
+  - component: {fileID: 573468247}
+  m_Layer: 0
+  m_Name: ShotTrajectoryMarker_comp
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &573468247
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 573468246}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d644747c7d1684df9ac73fcd725894bb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ShotTrajectoryMarker_comp
+  ballLauncher: {fileID: 878868376}
+  targetMarker: {fileID: 1341174785}
+  maxSimulationTime: 10
+  timeStep: 0.05
+  groundLayer:
+    serializedVersion: 2
+    m_Bits: 64
+  surfaceOffset: 0.05
+--- !u!4 &573468248
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 573468246}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &620160895
 GameObject:
   m_ObjectHideFlags: 0
@@ -1259,7 +1311,7 @@ GameObject:
   - component: {fileID: 1562058619}
   - component: {fileID: 1562058618}
   - component: {fileID: 1562058617}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Ground
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1789,3 +1841,4 @@ SceneRoots:
   - {fileID: 2070032301}
   - {fileID: 1341174786}
   - {fileID: 638841279}
+  - {fileID: 573468248}

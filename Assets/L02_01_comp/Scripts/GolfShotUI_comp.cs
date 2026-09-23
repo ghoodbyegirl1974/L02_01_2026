@@ -58,6 +58,11 @@ public class GolfShotUI_comp : MonoBehaviour
     [SerializeField] private PlayerInput playerInput;
     [SerializeField] private string tapActionName = "Launch"; // PlayerInput上のショットアクション名
     [SerializeField] private string resetActionName = "Reset"; // PlayerInput上のリセットアクション名（Rキー等）
+    [SerializeField] private string rotateActionName = "Rotate"; // 向き変更アクション名（追加）
+
+    [Header("Aim Settings")]
+    [Tooltip("左右キー長押し時の向き変更速度（度/秒）")]
+    [SerializeField] private float rotateSpeed = 45f; // 向き変更スピード（追加）
 
     private ShotState currentState = ShotState.Ready;
     private float cursorValue = 0.9f;   // 0.0 (左端: MAX) 〜 1.0 (右端)
@@ -68,6 +73,7 @@ public class GolfShotUI_comp : MonoBehaviour
 
     private InputAction tapAction;
     private InputAction resetAction;
+    private InputAction rotateAction; // 追加
 
     // 連続タップ誤動作防止用の変数
     private float lastTapTime = 0f;
@@ -97,6 +103,13 @@ public class GolfShotUI_comp : MonoBehaviour
                 resetAction.performed += OnResetInput;
                 resetAction.Enable();
             }
+
+            // --- 向き変更アクションの有効化（追加） ---
+            rotateAction = playerInput.actions.FindAction(rotateActionName);
+            if (rotateAction != null)
+            {
+                rotateAction.Enable();
+            }
         }
     }
 
@@ -110,6 +123,11 @@ public class GolfShotUI_comp : MonoBehaviour
         if (resetAction != null)
         {
             resetAction.performed -= OnResetInput;
+        }
+
+        if (rotateAction != null)
+        {
+            rotateAction.Disable();
         }
     }
 
@@ -162,6 +180,9 @@ public class GolfShotUI_comp : MonoBehaviour
 
     private void Update()
     {
+        // Ready状態の時のみ左右キー操作によるMoveDirectionの変更を受け付ける（追加）
+        HandleRotationInput();
+
         switch (currentState)
         {
             case ShotState.PowerSelecting:
@@ -186,6 +207,21 @@ public class GolfShotUI_comp : MonoBehaviour
                 }
                 UpdateCursorPosition();
                 break;
+        }
+    }
+
+    /// <summary>
+    /// 左右キー入力によるBallLauncherのMoveDirection更新処理（追加）
+    /// </summary>
+    private void HandleRotationInput()
+    {
+        if (currentState != ShotState.Ready) return;
+        if (rotateAction == null || ballLauncher == null) return;
+
+        float rotateInput = rotateAction.ReadValue<float>();
+        if (Mathf.Abs(rotateInput) > 0.01f)
+        {
+            ballLauncher.MoveDirection += rotateInput * rotateSpeed * Time.deltaTime;
         }
     }
 
