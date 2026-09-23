@@ -112,7 +112,8 @@ public class ShotTrajectoryMarker_comp : MonoBehaviour
         else
         {
             // 地面に届かない場合は非表示
-            if (targetMarker.activeSelf) targetMarker.SetActive(false);
+            //if (targetMarker.activeSelf) targetMarker.SetActive(false);
+            targetMarker.transform.position = currentPos;
         }
     }
 }

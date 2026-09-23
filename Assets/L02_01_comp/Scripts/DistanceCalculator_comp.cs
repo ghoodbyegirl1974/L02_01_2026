@@ -2,7 +2,7 @@ using UnityEngine;
 using TMPro;
 
 /// <summary>
-/// ボールの飛距離（メートル換算）を計測・表示するコンポーネント
+/// ボールの飛距離（メートル換算）およびカップまでの距離を計測・表示するコンポーネント
 /// </summary>
 public class DistanceCalculator_comp : MonoBehaviour
 {
@@ -15,6 +15,9 @@ public class DistanceCalculator_comp : MonoBehaviour
     [Header("Target Settings")]
     [Tooltip("計測対象のボールのRigidbody")]
     [SerializeField] private Rigidbody targetRigidbody;
+
+    [Tooltip("目標となるカップのGameObject")]
+    [SerializeField] private GameObject cupObject; // 追加
 
     [Header("Calculation Mode")]
     [Tooltip("飛距離の計測完了タイミング")]
@@ -38,6 +41,15 @@ public class DistanceCalculator_comp : MonoBehaviour
     [Header("UI Settings (Optional)")]
     [Tooltip("飛距離を表示するTextMeshProUGUI（任意）")]
     [SerializeField] private TextMeshProUGUI distanceText;
+
+    [Tooltip("カップまでの距離を表示するTextMeshProUGUI（任意）")]
+    [SerializeField] private TextMeshProUGUI distanceToCupText; // 追加
+
+    // --- 【外部参照用プロパティ】 ---
+    /// <summary>
+    /// 確定したカップまでの水平距離（メートル）。未確定時は -1 を返します。
+    /// </summary>
+    public float DistanceToCup { get; private set; } = -1f; // 追加
 
     private Vector3 launchPosition;
     private bool isFlying = false;
@@ -73,8 +85,10 @@ public class DistanceCalculator_comp : MonoBehaviour
         isMeasurementComplete = false;
         hasTouchedGround = false;
         stopTimer = 0f;
+        DistanceToCup = -1f; // 初期化
 
         UpdateUI("Flight: 0.0 m");
+        UpdateCupDistanceUI("Pin: -- m");
         Debug.Log($"[DistanceCalculator] 計測開始 (モード: {distanceMode}) - 発射位置: {launchPosition}");
     }
 
@@ -87,7 +101,10 @@ public class DistanceCalculator_comp : MonoBehaviour
         isMeasurementComplete = false;
         hasTouchedGround = false;
         stopTimer = 0f;
+        DistanceToCup = -1f; // 初期化
+
         UpdateUI("Ready");
+        UpdateCupDistanceUI("Pin: -- m");
     }
 
     private void OnCollisionEnter(Collision collision)
@@ -106,6 +123,9 @@ public class DistanceCalculator_comp : MonoBehaviour
                 isMeasurementComplete = true;
                 Debug.Log($"<color=yellow>[DistanceCalculator] 着地確定 (Carry): {carryDistance:F2} m</color>");
                 UpdateUI($"Carry: {carryDistance:F1} m");
+
+                // カップまでの水平距離を測定・確定
+                FinalizeCupDistance(landPosition);
             }
         }
     }
@@ -122,11 +142,31 @@ public class DistanceCalculator_comp : MonoBehaviour
                 isMeasurementComplete = true;
                 Debug.Log($"<color=green>[DistanceCalculator] 完全停止確定 (Total): {currentDistance:F2} m</color>");
                 UpdateUI($"Total: {currentDistance:F1} m");
+
+                // カップまでの水平距離を測定・確定
+                FinalizeCupDistance(targetRigidbody.position);
             }
         }
         else
         {
             stopTimer = 0f;
+        }
+    }
+
+    /// <summary>
+    /// 距離確定時にカップとボールの最終位置間の水平距離を計算し、プロパティ保持・UI更新を行う
+    /// </summary>
+    private void FinalizeCupDistance(Vector3 ballPosition)
+    {
+        if (cupObject != null)
+        {
+            DistanceToCup = CalculateHorizontalDistance(cupObject.transform.position, ballPosition);
+            UpdateCupDistanceUI($"Pin: {DistanceToCup:F1} m");
+            Debug.Log($"<color=cyan>[DistanceCalculator] カップまでの距離確定: {DistanceToCup:F2} m</color>");
+        }
+        else
+        {
+            Debug.LogWarning("[DistanceCalculator] cupObject が設定されていないため、カップまでの距離を計算できません。");
         }
     }
 
@@ -144,6 +184,14 @@ public class DistanceCalculator_comp : MonoBehaviour
         if (distanceText != null)
         {
             distanceText.text = message;
+        }
+    }
+
+    private void UpdateCupDistanceUI(string message)
+    {
+        if (distanceToCupText != null)
+        {
+            distanceToCupText.text = message;
         }
     }
 }
