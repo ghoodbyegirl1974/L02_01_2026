@@ -17,7 +17,7 @@ public class DistanceCalculator_comp : MonoBehaviour
     [SerializeField] private Rigidbody targetRigidbody;
 
     [Tooltip("目標となるカップのGameObject")]
-    [SerializeField] private GameObject cupObject; // 追加
+    [SerializeField] private GameObject cupObject;
 
     [Header("Calculation Mode")]
     [Tooltip("飛距離の計測完了タイミング")]
@@ -43,13 +43,13 @@ public class DistanceCalculator_comp : MonoBehaviour
     [SerializeField] private TextMeshProUGUI distanceText;
 
     [Tooltip("カップまでの距離を表示するTextMeshProUGUI（任意）")]
-    [SerializeField] private TextMeshProUGUI distanceToCupText; // 追加
+    [SerializeField] private TextMeshProUGUI distanceToCupText;
 
     // --- 【外部参照用プロパティ】 ---
     /// <summary>
     /// 確定したカップまでの水平距離（メートル）。未確定時は -1 を返します。
     /// </summary>
-    public float DistanceToCup { get; private set; } = -1f; // 追加
+    public float DistanceToCup { get; private set; } = -1f;
 
     private Vector3 launchPosition;
     private bool isFlying = false;
@@ -88,7 +88,10 @@ public class DistanceCalculator_comp : MonoBehaviour
         DistanceToCup = -1f; // 初期化
 
         UpdateUI("Flight: 0.0 m");
-        UpdateCupDistanceUI("Pin: -- m");
+        
+        // 計測開始時はカップ距離表示を非表示にする
+        SetCupDistanceUIVisibility(false);
+
         Debug.Log($"[DistanceCalculator] 計測開始 (モード: {distanceMode}) - 発射位置: {launchPosition}");
     }
 
@@ -104,7 +107,9 @@ public class DistanceCalculator_comp : MonoBehaviour
         DistanceToCup = -1f; // 初期化
 
         UpdateUI("Ready");
-        UpdateCupDistanceUI("Pin: -- m");
+
+        // リセット時もカップ距離表示を非表示にする
+        SetCupDistanceUIVisibility(false);
     }
 
     private void OnCollisionEnter(Collision collision)
@@ -124,7 +129,7 @@ public class DistanceCalculator_comp : MonoBehaviour
                 Debug.Log($"<color=yellow>[DistanceCalculator] 着地確定 (Carry): {carryDistance:F2} m</color>");
                 UpdateUI($"Carry: {carryDistance:F1} m");
 
-                // カップまでの水平距離を測定・確定
+                // カップまでの水平距離を測定・確定（表示も有効化）
                 FinalizeCupDistance(landPosition);
             }
         }
@@ -143,7 +148,7 @@ public class DistanceCalculator_comp : MonoBehaviour
                 Debug.Log($"<color=green>[DistanceCalculator] 完全停止確定 (Total): {currentDistance:F2} m</color>");
                 UpdateUI($"Total: {currentDistance:F1} m");
 
-                // カップまでの水平距離を測定・確定
+                // カップまでの水平距離を測定・確定（表示も有効化）
                 FinalizeCupDistance(targetRigidbody.position);
             }
         }
@@ -154,14 +159,18 @@ public class DistanceCalculator_comp : MonoBehaviour
     }
 
     /// <summary>
-    /// 距離確定時にカップとボールの最終位置間の水平距離を計算し、プロパティ保持・UI更新を行う
+    /// 距離確定時にカップとボールの最終位置間の水平距離を計算し、プロパティ保持・UI表示を行う
     /// </summary>
     private void FinalizeCupDistance(Vector3 ballPosition)
     {
         if (cupObject != null)
         {
             DistanceToCup = CalculateHorizontalDistance(cupObject.transform.position, ballPosition);
-            UpdateCupDistanceUI($"Pin: {DistanceToCup:F1} m");
+            
+            // 距離確定時にテキストを設定して表示を有効化
+            UpdateCupDistanceText($"Pin: {DistanceToCup:F1} m");
+            SetCupDistanceUIVisibility(true);
+
             Debug.Log($"<color=cyan>[DistanceCalculator] カップまでの距離確定: {DistanceToCup:F2} m</color>");
         }
         else
@@ -187,11 +196,22 @@ public class DistanceCalculator_comp : MonoBehaviour
         }
     }
 
-    private void UpdateCupDistanceUI(string message)
+    private void UpdateCupDistanceText(string message)
     {
         if (distanceToCupText != null)
         {
             distanceToCupText.text = message;
+        }
+    }
+
+    /// <summary>
+    /// distanceToCupText の表示・非表示を切り替える
+    /// </summary>
+    private void SetCupDistanceUIVisibility(bool visible)
+    {
+        if (distanceToCupText != null)
+        {
+            distanceToCupText.gameObject.SetActive(visible);
         }
     }
 }
