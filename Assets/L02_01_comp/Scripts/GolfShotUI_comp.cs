@@ -21,27 +21,18 @@ public class GolfShotUI_comp : MonoBehaviour
     [SerializeField] private RectTransform gaugeBar;      // ゲージ背景のRectTransform
     [SerializeField] private RectTransform gaugeCursor;   // ゲージカーソルのRectTransform
     [SerializeField] private RectTransform impactZone;    // ジャストインパクトエリア表示用
-    [SerializeField] private RectTransform powerBarMask;  // ★RectMask2Dがついた親オブジェクトのRectTransform
-    [SerializeField] private RectTransform powerBarImage; // ★Maskの中に配置した子ImageのRectTransform
+    [SerializeField] private RectTransform powerBarMask;  // RectMask2Dがついた親オブジェクトのRectTransform
+    [SerializeField] private RectTransform powerBarImage; // Maskの中に配置した子ImageのRectTransform
     [SerializeField] private TextMeshProUGUI statusText;  // 状態表示テキスト
 
     [Header("Shot Target Settings")]
     [SerializeField] private BallLauncher_comp ballLauncher;
-    [SerializeField] private float maxLaunchPower = 150f; // 最大パワー
-    [SerializeField] private float basePitchAngle = 30f;  // 基本打ち出し角
 
     [Header("Camera Settings")]
-    [SerializeField] private CameraSwitcher_comp cameraSwitcher; // ★カメラ切り替えコンポーネント参照
-    [SerializeField] private float cameraSwitchDelay = 0.5f;     // ★ショット後、サブカメラに切り替えるまでの遅延時間(秒)
+    [SerializeField] private CameraSwitcher_comp cameraSwitcher; // カメラ切り替えコンポーネント参照
+    [SerializeField] private float cameraSwitchDelay = 0.5f;     // ショット後、サブカメラに切り替えるまでの遅延時間(秒)
 
-    // ★ 角度ブレ設定（Zone内とZone外で分離）
-    [Tooltip("ImpactZone内の端ギリギリで発生する最大ブレ角度（度）")]
-    [SerializeField] private float maxZoneYawAngle = 10f; 
-
-    [Tooltip("ImpactZoneを完全に外した（ミス）際の最大左右ズレ角度（度）")]
-    [SerializeField] private float maxMissYawAngle = 25f; 
-
-    // ★ パワーランダム減衰設定
+    // パワーランダム減衰設定
     [Header("Power Variation Settings")]
     [Tooltip("ImpactZone内でのショット時のパワー下限倍率 (0.97 = 97%〜100%のランダム)")]
     [Range(0.5f, 1.0f)]
@@ -61,7 +52,7 @@ public class GolfShotUI_comp : MonoBehaviour
 
     [Tooltip("インパクトゾーンの全体の幅比率 (0.1 の場合、0.85 〜 0.95 がゾーン内)")]
     [Range(0.01f, 0.3f)]
-    [SerializeField] private float impactZoneWidth = 0.1f; // ★Zoneの幅設定を追加
+    [SerializeField] private float impactZoneWidth = 0.1f; // Zoneの幅設定
 
     [Header("Input System Settings")]
     [SerializeField] private PlayerInput playerInput;
@@ -82,7 +73,7 @@ public class GolfShotUI_comp : MonoBehaviour
     private float lastTapTime = 0f;
     private const float tapCooldown = 0.15f; // 150ミリ秒以内の連打・連続イベントをガード
 
-    private Coroutine cameraSwitchCoroutine; // ★コルーチンの二重実行を防ぐためのキャッシュ変数
+    private Coroutine cameraSwitchCoroutine; // コルーチンの二重実行を防ぐためのキャッシュ変数
 
     private void Awake()
     {
@@ -236,7 +227,8 @@ public class GolfShotUI_comp : MonoBehaviour
     {
         currentState = ShotState.Executed;
 
-        float yawOffset = 0f;
+        bool isImpactZone = false;
+        float yawRatio = 0f; // -1.0 〜 +1.0
         float powerMultiplier = 1.0f;
 
         float halfZoneWidth = impactZoneWidth / 2.0f;
@@ -245,46 +237,39 @@ public class GolfShotUI_comp : MonoBehaviour
 
         if (cursorValue >= minZone && cursorValue <= maxZone)
         {
-            float normalizedDistance = (cursorValue - impactRatio) / halfZoneWidth;
-            yawOffset = normalizedDistance * maxZoneYawAngle;
+            isImpactZone = true;
+            // Zone内でのズレ比率（中央: 0.0, 端: -1.0 または +1.0）
+            yawRatio = (cursorValue - impactRatio) / halfZoneWidth;
             powerMultiplier = Random.Range(impactZoneMinPowerRatio, 1.0f);
         }
         else
         {
-            if (cursorValue < minZone)
-            {
-                yawOffset = -maxMissYawAngle;
-            }
-            else
-            {
-                yawOffset = maxMissYawAngle;
-            }
-
+            isImpactZone = false;
+            // Zone外（ミス）での方向（左ミス: -1.0, 右ミス: +1.0）
+            yawRatio = (cursorValue < minZone) ? -1.0f : 1.0f;
             powerMultiplier = Random.Range(missMinPowerRatio, 1.0f);
         }
 
-        float finalPower = selectedPower * powerMultiplier * maxLaunchPower;
+        // 最終的なパワーの割合（0.0 ～ 1.0）
+        float finalPowerRatio = selectedPower * powerMultiplier;
 
         string impactMsg = "NICE SHOT!!";
-        if (Mathf.Abs(yawOffset) >= maxMissYawAngle) impactMsg = "BAD SHOT!";
-        else if (Mathf.Abs(yawOffset) > 0f) impactMsg = "GOOD SHOT";
+        if (!isImpactZone) impactMsg = "BAD SHOT!";
+        else if (Mathf.Abs(yawRatio) > 0.1f) impactMsg = "GOOD SHOT";
 
-        UpdateStatusText($"{impactMsg} (Power: {Mathf.RoundToInt(selectedPower * powerMultiplier * 100)}%, Yaw: {yawOffset:F1}°) - Press R to Reset");
+        UpdateStatusText($"{impactMsg} (Power: {Mathf.RoundToInt(finalPowerRatio * 100)}%, YawRatio: {yawRatio:F2}) - Press R to Reset");
 
         if (ballLauncher != null)
         {
-            ballLauncher.SetShotParameters(finalPower, basePitchAngle, yawOffset);
-            ballLauncher.LaunchBall();
+            // パワー比率、ブレ比率(-1.0～+1.0)、Zone内フラグを渡して発射指示
+            ballLauncher.LaunchBall(finalPowerRatio, yawRatio, isImpactZone);
 
-            // ★ 一定時間後にサブカメラへ切り替えるコルーチンを開始
+            // 一定時間後にサブカメラへ切り替えるコルーチンを開始
             if (cameraSwitchCoroutine != null) StopCoroutine(cameraSwitchCoroutine);
             cameraSwitchCoroutine = StartCoroutine(SwitchCameraDelayed());
         }
     }
 
-    /// <summary>
-    /// ★ 指定された時間（cameraSwitchDelay秒）待ってからSubCamera01へ切り替えるコルーチン
-    /// </summary>
     private IEnumerator SwitchCameraDelayed()
     {
         yield return new WaitForSeconds(cameraSwitchDelay);
