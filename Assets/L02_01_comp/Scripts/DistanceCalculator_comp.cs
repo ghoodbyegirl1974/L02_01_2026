@@ -45,6 +45,11 @@ public class DistanceCalculator_comp : MonoBehaviour
     [Tooltip("カップまでの距離を表示するTextMeshProUGUI（任意）")]
     [SerializeField] private TextMeshProUGUI distanceToCupText;
 
+    // --- 【追加参照】 ---
+    [Header("Camera Animation References")]
+    [Tooltip("カメラアニメーション制御用のBallCameraFollow_comp参照")]
+    [SerializeField] private BallCameraFollow_comp ballCameraFollow;
+
     // --- 【外部参照用プロパティ】 ---
     /// <summary>
     /// 確定したカップまでの水平距離（メートル）。未確定時は -1 を返します。
@@ -129,7 +134,7 @@ public class DistanceCalculator_comp : MonoBehaviour
                 Debug.Log($"<color=yellow>[DistanceCalculator] 着地確定 (Carry): {carryDistance:F2} m</color>");
                 UpdateUI($"Carry: {carryDistance:F1} m");
 
-                // カップまでの水平距離を測定・確定（表示も有効化）
+                // カップまでの水平距離を測定・確定（カメラ移動後にUI可視化）
                 FinalizeCupDistance(landPosition);
             }
         }
@@ -148,7 +153,7 @@ public class DistanceCalculator_comp : MonoBehaviour
                 Debug.Log($"<color=green>[DistanceCalculator] 完全停止確定 (Total): {currentDistance:F2} m</color>");
                 UpdateUI($"Total: {currentDistance:F1} m");
 
-                // カップまでの水平距離を測定・確定（表示も有効化）
+                // カップまでの水平距離を測定・確定（カメラ移動後にUI可視化）
                 FinalizeCupDistance(targetRigidbody.position);
             }
         }
@@ -159,19 +164,32 @@ public class DistanceCalculator_comp : MonoBehaviour
     }
 
     /// <summary>
-    /// 距離確定時にカップとボールの最終位置間の水平距離を計算し、プロパティ保持・UI表示を行う
+    /// 距離確定時にカップとボールの最終位置間の水平距離を計算し、プロパティ保持を行う。
+    /// （UI表示はカメラ移動完了時に行います）
     /// </summary>
     private void FinalizeCupDistance(Vector3 ballPosition)
     {
         if (cupObject != null)
         {
             DistanceToCup = CalculateHorizontalDistance(cupObject.transform.position, ballPosition);
-            
-            // 距離確定時にテキストを設定して表示を有効化
             UpdateCupDistanceText($"Pin: {DistanceToCup:F1} m");
-            SetCupDistanceUIVisibility(true);
 
             Debug.Log($"<color=cyan>[DistanceCalculator] カップまでの距離確定: {DistanceToCup:F2} m</color>");
+
+            // カメラアニメーション連携処理（追加）
+            if (ballCameraFollow != null)
+            {
+                ballCameraFollow.StartCameraMoveSequence(ballPosition, cupObject.transform.position, () =>
+                {
+                    // カメラ移動完了時のコールバックでUI表示を有効化
+                    SetCupDistanceUIVisibility(true);
+                });
+            }
+            else
+            {
+                // カメラ参照が設定されていない場合は即時表示（フォールバック）
+                SetCupDistanceUIVisibility(true);
+            }
         }
         else
         {

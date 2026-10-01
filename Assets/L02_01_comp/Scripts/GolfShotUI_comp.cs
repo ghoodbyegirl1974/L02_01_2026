@@ -428,6 +428,16 @@ public class GolfShotUI_comp : MonoBehaviour
         {
             ballLauncher.ResetBall();
         }
+
+        // --- 【追加】SubCameraのアニメーション状態と回転を初期化 ---
+        if (cameraSwitcher != null && cameraSwitcher.SubCamera01 != null)
+        {
+            var ballFollow = cameraSwitcher.SubCamera01.GetComponent<BallCameraFollow_comp>();
+            if (ballFollow != null)
+            {
+                ballFollow.ResetCameraState();
+            }
+        }
     }
 
     public void ResetUI()
