@@ -20,10 +20,21 @@ public class GolfShotUI_comp : MonoBehaviour
     [Header("UI References")]
     [SerializeField] private RectTransform gaugeBar;      // ゲージ背景のRectTransform
     [SerializeField] private RectTransform gaugeCursor;   // ゲージカーソルのRectTransform
-    [SerializeField] private RectTransform impactZone;    // ジャストインパクトエリア表示用
+    [SerializeField] private RectTransform impactZone;    // インパクトエリア表示用
+    [SerializeField] private RectTransform niceShotZone;  // ジャストインパクト（ナイスショット）エリア表示用
     [SerializeField] private RectTransform powerBarMask;  // RectMask2Dがついた親オブジェクトのRectTransform
     [SerializeField] private RectTransform powerBarImage; // Maskの中に配置した子ImageのRectTransform
     [SerializeField] private TextMeshProUGUI statusText;  // 状態表示テキスト
+
+    [Header("Impact Message UI Settings")]
+    [Tooltip("NICE SHOT時に表示するGameObject")]
+    [SerializeField] private GameObject niceShotMessageObject; // 追加
+
+    [Tooltip("GOOD SHOT時に表示するGameObject")]
+    [SerializeField] private GameObject goodShotMessageObject; // 追加
+
+    [Tooltip("BAD SHOT時に表示するGameObject")]
+    [SerializeField] private GameObject badShotMessageObject;  // 追加
 
     [Header("Shot Target Settings")]
     [SerializeField] private BallLauncher_comp ballLauncher;
@@ -34,6 +45,10 @@ public class GolfShotUI_comp : MonoBehaviour
 
     // パワーランダム減衰設定
     [Header("Power Variation Settings")]
+    [Tooltip("NiceShotZone内でのショット時のパワー下限倍率 (0.99 = 99%〜100%のランダム)")]
+    [Range(0.5f, 1.0f)]
+    [SerializeField] private float niceShotZoneMinPowerRatio = 0.99f;
+
     [Tooltip("ImpactZone内でのショット時のパワー下限倍率 (0.97 = 97%〜100%のランダム)")]
     [Range(0.5f, 1.0f)]
     [SerializeField] private float impactZoneMinPowerRatio = 0.97f;
@@ -54,15 +69,20 @@ public class GolfShotUI_comp : MonoBehaviour
     [Range(0.01f, 0.3f)]
     [SerializeField] private float impactZoneWidth = 0.1f; // Zoneの幅設定
 
+    [Tooltip("ナイスショットゾーンの全体の幅比率 (0.02 の場合、0.89 〜 0.91 がゾーン内)")]
+    [Range(0.005f, 0.1f)]
+    [SerializeField] private float niceShotZoneWidth = 0.02f; // NiceShotZoneの幅設定
+
     [Header("Input System Settings")]
     [SerializeField] private PlayerInput playerInput;
     [SerializeField] private string tapActionName = "Launch"; // PlayerInput上のショットアクション名
     [SerializeField] private string resetActionName = "Reset"; // PlayerInput上のリセットアクション名（Rキー等）
-    [SerializeField] private string rotateActionName = "Rotate"; // 向き変更アクション名（追加）
+    [SerializeField] private string rotateActionName = "Rotate"; // 向き変更アクション名
+    [SerializeField] private string switchTeeShotCameraActionName = "SwitchTeeShotCamera"; // カメラ切り替えアクション名（Cキー等）
 
     [Header("Aim Settings")]
     [Tooltip("左右キー長押し時の向き変更速度（度/秒）")]
-    [SerializeField] private float rotateSpeed = 45f; // 向き変更スピード（追加）
+    [SerializeField] private float rotateSpeed = 45f;
 
     private ShotState currentState = ShotState.Ready;
     private float cursorValue = 0.9f;   // 0.0 (左端: MAX) 〜 1.0 (右端)
@@ -73,7 +93,8 @@ public class GolfShotUI_comp : MonoBehaviour
 
     private InputAction tapAction;
     private InputAction resetAction;
-    private InputAction rotateAction; // 追加
+    private InputAction rotateAction;
+    private InputAction switchTeeShotCameraAction;
 
     // 連続タップ誤動作防止用の変数
     private float lastTapTime = 0f;
@@ -104,11 +125,17 @@ public class GolfShotUI_comp : MonoBehaviour
                 resetAction.Enable();
             }
 
-            // --- 向き変更アクションの有効化（追加） ---
             rotateAction = playerInput.actions.FindAction(rotateActionName);
             if (rotateAction != null)
             {
                 rotateAction.Enable();
+            }
+
+            switchTeeShotCameraAction = playerInput.actions.FindAction(switchTeeShotCameraActionName);
+            if (switchTeeShotCameraAction != null)
+            {
+                switchTeeShotCameraAction.performed += OnSwitchTeeShotCameraInput;
+                switchTeeShotCameraAction.Enable();
             }
         }
     }
@@ -128,6 +155,11 @@ public class GolfShotUI_comp : MonoBehaviour
         if (rotateAction != null)
         {
             rotateAction.Disable();
+        }
+
+        if (switchTeeShotCameraAction != null)
+        {
+            switchTeeShotCameraAction.performed -= OnSwitchTeeShotCameraInput;
         }
     }
 
@@ -180,7 +212,7 @@ public class GolfShotUI_comp : MonoBehaviour
 
     private void Update()
     {
-        // Ready状態の時のみ左右キー操作によるMoveDirectionの変更を受け付ける（追加）
+        // Ready状態の時のみ左右キー操作によるMoveDirectionの変更を受け付ける
         HandleRotationInput();
 
         switch (currentState)
@@ -211,7 +243,7 @@ public class GolfShotUI_comp : MonoBehaviour
     }
 
     /// <summary>
-    /// 左右キー入力によるBallLauncherのMoveDirection更新処理（追加）
+    /// 左右キー入力によるBallLauncherのMoveDirection更新処理
     /// </summary>
     private void HandleRotationInput()
     {
@@ -225,6 +257,19 @@ public class GolfShotUI_comp : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Cキー入力によるティーショット前のカメラ切替処理
+    /// </summary>
+    private void OnSwitchTeeShotCameraInput(InputAction.CallbackContext context)
+    {
+        if (!context.performed) return;
+
+        if (currentState == ShotState.Ready && cameraSwitcher != null)
+        {
+            cameraSwitcher.ToggleTeeShotCamera();
+        }
+    }
+
     public void OnTapInput(InputAction.CallbackContext context)
     {
         if (!context.performed) return;
@@ -235,6 +280,11 @@ public class GolfShotUI_comp : MonoBehaviour
         switch (currentState)
         {
             case ShotState.Ready:
+                if (cameraSwitcher != null)
+                {
+                    cameraSwitcher.SwitchToMainCamera();
+                }
+
                 currentState = ShotState.PowerSelecting;
                 cursorValue = impactRatio;
                 UpdateStatusText("Power Selecting... Press Space to Lock Power!");
@@ -266,44 +316,78 @@ public class GolfShotUI_comp : MonoBehaviour
         bool isImpactZone = false;
         float yawRatio = 0f; // -1.0 〜 +1.0
         float powerMultiplier = 1.0f;
+        string impactMsg = "";
 
-        float halfZoneWidth = impactZoneWidth / 2.0f;
-        float minZone = impactRatio - halfZoneWidth;
-        float maxZone = impactRatio + halfZoneWidth;
+        // ImpactZoneの範囲計算
+        float halfImpactZoneWidth = impactZoneWidth / 2.0f;
+        float minImpactZone = impactRatio - halfImpactZoneWidth;
+        float maxImpactZone = impactRatio + halfImpactZoneWidth;
 
-        if (cursorValue >= minZone && cursorValue <= maxZone)
+        // NiceShotZoneの範囲計算
+        float halfNiceZoneWidth = niceShotZoneWidth / 2.0f;
+        float minNiceZone = impactRatio - halfNiceZoneWidth;
+        float maxNiceZone = impactRatio + halfNiceZoneWidth;
+
+        // --- ショット判定の3分岐処理 ---
+        if (cursorValue >= minNiceZone && cursorValue <= maxNiceZone)
         {
+            // 1. NiceShotZone内の判定
             isImpactZone = true;
-            // Zone内でのズレ比率（中央: 0.0, 端: -1.0 または +1.0）
-            yawRatio = (cursorValue - impactRatio) / halfZoneWidth;
+            yawRatio = 0f;
+            powerMultiplier = Random.Range(niceShotZoneMinPowerRatio, 1.0f);
+            impactMsg = "NICE SHOT!!";
+        }
+        else if (cursorValue >= minImpactZone && cursorValue <= maxImpactZone)
+        {
+            // 2. NiceShotZone外だが、ImpactZone内の判定
+            isImpactZone = true;
+            yawRatio = (cursorValue - impactRatio) / halfImpactZoneWidth;
             powerMultiplier = Random.Range(impactZoneMinPowerRatio, 1.0f);
+            impactMsg = "GOOD SHOT";
         }
         else
         {
+            // 3. ImpactZone外（ミスショット）の判定
             isImpactZone = false;
-            // Zone外（ミス）での方向（左ミス: -1.0, 右ミス: +1.0）
-            yawRatio = (cursorValue < minZone) ? -1.0f : 1.0f;
+            yawRatio = (cursorValue < minImpactZone) ? -1.0f : 1.0f;
             powerMultiplier = Random.Range(missMinPowerRatio, 1.0f);
+            impactMsg = "BAD SHOT!";
         }
 
-        // 最終的なパワーの割合（0.0 ～ 1.0）
-        float finalPowerRatio = selectedPower * powerMultiplier;
+        // ショット結果に応じたメッセージオブジェクトの表示切り替え（追加）
+        ShowImpactMessage(impactMsg);
 
-        string impactMsg = "NICE SHOT!!";
-        if (!isImpactZone) impactMsg = "BAD SHOT!";
-        else if (Mathf.Abs(yawRatio) > 0.1f) impactMsg = "GOOD SHOT";
+        float finalPowerRatio = selectedPower * powerMultiplier;
 
         UpdateStatusText($"{impactMsg} (Power: {Mathf.RoundToInt(finalPowerRatio * 100)}%, YawRatio: {yawRatio:F2}) - Press R to Reset");
 
         if (ballLauncher != null)
         {
-            // パワー比率、ブレ比率(-1.0～+1.0)、Zone内フラグを渡して発射指示
             ballLauncher.LaunchBall(finalPowerRatio, yawRatio, isImpactZone);
 
-            // 一定時間後にサブカメラへ切り替えるコルーチンを開始
             if (cameraSwitchCoroutine != null) StopCoroutine(cameraSwitchCoroutine);
             cameraSwitchCoroutine = StartCoroutine(SwitchCameraDelayed());
         }
+    }
+
+    /// <summary>
+    /// インパクト判定メッセージオブジェクトの表示切り替え（追加）
+    /// </summary>
+    private void ShowImpactMessage(string message)
+    {
+        if (niceShotMessageObject != null) niceShotMessageObject.SetActive(message == "NICE SHOT!!");
+        if (goodShotMessageObject != null) goodShotMessageObject.SetActive(message == "GOOD SHOT");
+        if (badShotMessageObject != null) badShotMessageObject.SetActive(message == "BAD SHOT!");
+    }
+
+    /// <summary>
+    /// 全てのインパクトメッセージオブジェクトを非表示（追加）
+    /// </summary>
+    private void HideAllImpactMessages()
+    {
+        if (niceShotMessageObject != null) niceShotMessageObject.SetActive(false);
+        if (goodShotMessageObject != null) goodShotMessageObject.SetActive(false);
+        if (badShotMessageObject != null) badShotMessageObject.SetActive(false);
     }
 
     private IEnumerator SwitchCameraDelayed()
@@ -327,7 +411,6 @@ public class GolfShotUI_comp : MonoBehaviour
     [ContextMenu("Reset All")]
     public void ResetAll()
     {
-        // 1. カメラタイマーの停止＆メインカメラへの復帰
         if (cameraSwitchCoroutine != null)
         {
             StopCoroutine(cameraSwitchCoroutine);
@@ -339,10 +422,8 @@ public class GolfShotUI_comp : MonoBehaviour
             cameraSwitcher.SwitchToMainCamera();
         }
 
-        // 2. UIの初期化
         ResetUI();
 
-        // 3. ボール位置・物理・距離計測の初期化
         if (ballLauncher != null)
         {
             ballLauncher.ResetBall();
@@ -357,12 +438,15 @@ public class GolfShotUI_comp : MonoBehaviour
         selectedImpact = 0f;
         lastTapTime = 0f;
 
+        // インパクトメッセージをすべて非表示化（追加）
+        HideAllImpactMessages();
+
         InitializeGaugeDimensions();
 
         UpdateCursorPosition();
         UpdateImpactZoneGraphic();
         UpdatePowerBarFill();
-        UpdateStatusText("Press Space to Start Shot");
+        UpdateStatusText("Press Space to Start Shot (Press C to Toggle Camera)");
     }
 
     private void UpdateCursorPosition()
@@ -398,13 +482,20 @@ public class GolfShotUI_comp : MonoBehaviour
 
     private void UpdateImpactZoneGraphic()
     {
-        if (impactZone != null && gaugeBar != null)
-        {
-            float leftX = -barWidth * gaugeBar.pivot.x;
-            float rightX = barWidth * (1f - gaugeBar.pivot.x);
+        if (gaugeBar == null) return;
 
-            float xPos = Mathf.Lerp(leftX, rightX, impactRatio);
+        float leftX = -barWidth * gaugeBar.pivot.x;
+        float rightX = barWidth * (1f - gaugeBar.pivot.x);
+        float xPos = Mathf.Lerp(leftX, rightX, impactRatio);
+
+        if (impactZone != null)
+        {
             impactZone.anchoredPosition = new Vector2(xPos, impactZone.anchoredPosition.y);
+        }
+
+        if (niceShotZone != null)
+        {
+            niceShotZone.anchoredPosition = new Vector2(xPos, niceShotZone.anchoredPosition.y);
         }
     }
 

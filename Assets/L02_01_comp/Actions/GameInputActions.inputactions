@@ -32,6 +32,15 @@
                     "processors": "",
                     "interactions": "",
                     "initialStateCheck": true
+                },
+                {
+                    "name": "SwitchTeeShotCamera",
+                    "type": "Button",
+                    "id": "a1a578a3-3dd5-42e0-9117-51984c6269d5",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
                 }
             ],
             "bindings": [
@@ -89,6 +98,17 @@
                     "action": "Rotate",
                     "isComposite": false,
                     "isPartOfComposite": true
+                },
+                {
+                    "name": "",
+                    "id": "74f4d0ea-1b35-463c-9bb2-c938115f7758",
+                    "path": "<Keyboard>/c",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "SwitchTeeShotCamera",
+                    "isComposite": false,
+                    "isPartOfComposite": false
                 }
             ]
         }
