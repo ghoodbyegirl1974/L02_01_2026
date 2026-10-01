@@ -28,13 +28,17 @@ public class GolfShotUI_comp : MonoBehaviour
 
     [Header("Impact Message UI Settings")]
     [Tooltip("NICE SHOT時に表示するGameObject")]
-    [SerializeField] private GameObject niceShotMessageObject; // 追加
+    [SerializeField] private GameObject niceShotMessageObject;
 
     [Tooltip("GOOD SHOT時に表示するGameObject")]
-    [SerializeField] private GameObject goodShotMessageObject; // 追加
+    [SerializeField] private GameObject goodShotMessageObject;
 
     [Tooltip("BAD SHOT時に表示するGameObject")]
-    [SerializeField] private GameObject badShotMessageObject;  // 追加
+    [SerializeField] private GameObject badShotMessageObject;
+
+    // --- 【追加】メッセージ自動消去設定 ---
+    [Tooltip("インパクトメッセージが表示されてから自動で消えるまでの時間（秒）")]
+    [SerializeField] private float messageDisplayDuration = 2.0f;
 
     [Header("Shot Target Settings")]
     [SerializeField] private BallLauncher_comp ballLauncher;
@@ -101,6 +105,7 @@ public class GolfShotUI_comp : MonoBehaviour
     private const float tapCooldown = 0.15f; // 150ミリ秒以内の連打・連続イベントをガード
 
     private Coroutine cameraSwitchCoroutine; // コルーチンの二重実行を防ぐためのキャッシュ変数
+    private Coroutine hideMessageCoroutine;  // 【追加】メッセージ消去用コルーチン
 
     private void Awake()
     {
@@ -354,7 +359,7 @@ public class GolfShotUI_comp : MonoBehaviour
             impactMsg = "BAD SHOT!";
         }
 
-        // ショット結果に応じたメッセージオブジェクトの表示切り替え（追加）
+        // ショット結果に応じたメッセージオブジェクトの表示切り替え（タイマー消去付き）
         ShowImpactMessage(impactMsg);
 
         float finalPowerRatio = selectedPower * powerMultiplier;
@@ -371,20 +376,45 @@ public class GolfShotUI_comp : MonoBehaviour
     }
 
     /// <summary>
-    /// インパクト判定メッセージオブジェクトの表示切り替え（追加）
+    /// インパクト判定メッセージオブジェクトを表示し、一定時間後に自動で非表示にする（修正）
     /// </summary>
     private void ShowImpactMessage(string message)
     {
+        // 既存の自動消去タイマーがあれば停止
+        if (hideMessageCoroutine != null)
+        {
+            StopCoroutine(hideMessageCoroutine);
+        }
+
         if (niceShotMessageObject != null) niceShotMessageObject.SetActive(message == "NICE SHOT!!");
         if (goodShotMessageObject != null) goodShotMessageObject.SetActive(message == "GOOD SHOT");
         if (badShotMessageObject != null) badShotMessageObject.SetActive(message == "BAD SHOT!");
+
+        // 自動消去コルーチンを開始
+        hideMessageCoroutine = StartCoroutine(HideImpactMessageAfterDelay());
     }
 
     /// <summary>
-    /// 全てのインパクトメッセージオブジェクトを非表示（追加）
+    /// 【追加】指定秒数経過後にメッセージを自動非表示にするコルーチン
+    /// </summary>
+    private IEnumerator HideImpactMessageAfterDelay()
+    {
+        yield return new WaitForSeconds(messageDisplayDuration);
+        HideAllImpactMessages();
+        hideMessageCoroutine = null;
+    }
+
+    /// <summary>
+    /// 全てのインパクトメッセージオブジェクトを非表示（修正）
     /// </summary>
     private void HideAllImpactMessages()
     {
+        if (hideMessageCoroutine != null)
+        {
+            StopCoroutine(hideMessageCoroutine);
+            hideMessageCoroutine = null;
+        }
+
         if (niceShotMessageObject != null) niceShotMessageObject.SetActive(false);
         if (goodShotMessageObject != null) goodShotMessageObject.SetActive(false);
         if (badShotMessageObject != null) badShotMessageObject.SetActive(false);
@@ -429,7 +459,7 @@ public class GolfShotUI_comp : MonoBehaviour
             ballLauncher.ResetBall();
         }
 
-        // --- 【追加】SubCameraのアニメーション状態と回転を初期化 ---
+        // SubCameraのアニメーション状態と回転を初期化
         if (cameraSwitcher != null && cameraSwitcher.SubCamera01 != null)
         {
             var ballFollow = cameraSwitcher.SubCamera01.GetComponent<BallCameraFollow_comp>();
@@ -448,7 +478,7 @@ public class GolfShotUI_comp : MonoBehaviour
         selectedImpact = 0f;
         lastTapTime = 0f;
 
-        // インパクトメッセージをすべて非表示化（追加）
+        // インパクトメッセージをすべて非表示化
         HideAllImpactMessages();
 
         InitializeGaugeDimensions();
