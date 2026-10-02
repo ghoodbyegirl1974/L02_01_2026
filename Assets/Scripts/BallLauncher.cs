@@ -89,26 +89,7 @@ public class BallLauncher : MonoBehaviour
     {
         if (targetRigidbody == null || !targetRigidbody.isKinematic) return;
 
-        // 1. 物理運動を開始（Kinematicを先に解除する）
-        targetRigidbody.isKinematic = false;
-
-        // 2. Kinematic解除後に速度をクリア
-        targetRigidbody.linearVelocity = Vector3.zero;
-        targetRigidbody.angularVelocity = Vector3.zero;
-
-        // 3. インパクト判定に応じた最大ブレ角度を適用し、最終的なヨーオフセット角度を計算
-        float appliedMaxYaw = isImpactZone ? maxZoneYawAngle : maxMissYawAngle;
-        float finalYawOffset = Mathf.Clamp(yawRatio, -1.0f, 1.0f) * appliedMaxYaw;
-
-        // 4. 基準向き（MoveDirection）とショットのピッチ・ヨー角度を合成して発射方向を計算
-        Quaternion baseRotation = Quaternion.Euler(0f, MoveDirection, 0f);
-        Quaternion shotOffsetRotation = Quaternion.Euler(-basePitchAngle, finalYawOffset, 0f);
-
-        Vector3 launchDirection = (baseRotation * shotOffsetRotation) * Vector3.forward;
-
-        // 5. 計算された力（最大パワー × パワー比率）を加える
-        float calculatedPower = maxLaunchPower * Mathf.Clamp01(powerRatio);
-        targetRigidbody.AddForce(launchDirection * calculatedPower, forceMode);
+        //L02_01_01 AddForceを実装する。
 
         // 6. 飛距離計測コンポーネントへの開始通知
         if (distanceCalculator != null)

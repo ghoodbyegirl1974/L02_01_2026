@@ -199,11 +199,8 @@ public class DistanceCalculator : MonoBehaviour
 
     private float CalculateHorizontalDistance(Vector3 start, Vector3 end)
     {
-        Vector3 startXZ = new Vector3(start.x, 0f, start.z);
-        Vector3 endXZ = new Vector3(end.x, 0f, end.z);
-
-        float unityDistance = Vector3.Distance(startXZ, endXZ);
-        return unityDistance / unitsPerMeter;
+        //L02_01_05
+        return 0;
     }
 
     private void UpdateUI(string message)
