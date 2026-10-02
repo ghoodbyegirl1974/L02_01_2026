@@ -226,7 +226,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BallCameraFollow_comp
   target: {fileID: 1518171751}
-  offset: {x: 0, y: 3, z: -5}
+  offset: {x: 16, y: 10, z: 8}
   delayBeforeCameraMove: 1
   cameraMoveDuration: 2
   distanceFromBall: 5
@@ -896,6 +896,7 @@ MonoBehaviour:
   niceShotMessageObject: {fileID: 1123913156}
   goodShotMessageObject: {fileID: 435148301}
   badShotMessageObject: {fileID: 1749218930}
+  messageDisplayDuration: 2
   ballLauncher: {fileID: 878868376}
   cameraSwitcher: {fileID: 2070032300}
   cameraSwitchDelay: 2
@@ -1389,7 +1390,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &1341174786
 Transform:
   m_ObjectHideFlags: 0
