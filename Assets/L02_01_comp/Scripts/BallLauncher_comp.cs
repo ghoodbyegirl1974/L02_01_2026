@@ -2,6 +2,11 @@ using UnityEngine;
 
 public class BallLauncher_comp : MonoBehaviour
 {
+    // --- 【追加】Debug設定 ---
+    [Header("Debug Settings")]
+    [Tooltip("trueの場合、MoveDirectionとbasePitchAngleのみ（ブレなし・パワー100%）で打ち出します")]
+    [SerializeField] private bool isDebug = false;
+
     [Header("Target Settings")]
     [SerializeField] private Rigidbody targetRigidbody;
     [SerializeField] private Vector3 initialPosition = new Vector3(0f, 15f, 0f);
@@ -31,7 +36,8 @@ public class BallLauncher_comp : MonoBehaviour
     [Tooltip("飛距離計測コンポーネントへの参照")]
     [SerializeField] private DistanceCalculator_comp distanceCalculator;
 
-    // --- 【外部参照用プロパティ（追加部分）】 ---
+    // --- 【外部参照用プロパティ】 ---
+    public bool IsDebug => isDebug;
     public Rigidbody TargetRigidbody => targetRigidbody;
     public Vector3 InitialPosition => initialPosition;
     public float MaxLaunchPower => maxLaunchPower;
@@ -96,21 +102,35 @@ public class BallLauncher_comp : MonoBehaviour
         targetRigidbody.linearVelocity = Vector3.zero;
         targetRigidbody.angularVelocity = Vector3.zero;
 
-        // 3. インパクト判定に応じた最大ブレ角度を適用し、最終的なヨーオフセット角度を計算
-        float appliedMaxYaw = isImpactZone ? maxZoneYawAngle : maxMissYawAngle;
-        float finalYawOffset = Mathf.Clamp(yawRatio, -1.0f, 1.0f) * appliedMaxYaw;
+        Vector3 launchDirection;
+        float calculatedPower;
 
-        // 4. 基準向き（MoveDirection）とショットのピッチ・ヨー角度を合成して発射方向を計算
-        Quaternion baseRotation = Quaternion.Euler(0f, MoveDirection, 0f);
-        Quaternion shotOffsetRotation = Quaternion.Euler(-basePitchAngle, finalYawOffset, 0f);
+        if (isDebug)
+        {
+            // --- Debugモード時：MoveDirection と basePitchAngle のみ（パワー100%、ブレなし） ---
+            Quaternion baseRotation = Quaternion.Euler(0f, MoveDirection, 0f);
+            Quaternion shotOffsetRotation = Quaternion.Euler(-basePitchAngle, 0f, 0f);
 
-        Vector3 launchDirection = (baseRotation * shotOffsetRotation) * Vector3.forward;
+            launchDirection = (baseRotation * shotOffsetRotation) * Vector3.forward;
+            calculatedPower = maxLaunchPower;
+        }
+        else
+        {
+            // --- 通常モード時：従来の計算処理 ---
+            float appliedMaxYaw = isImpactZone ? maxZoneYawAngle : maxMissYawAngle;
+            float finalYawOffset = Mathf.Clamp(yawRatio, -1.0f, 1.0f) * appliedMaxYaw;
 
-        // 5. 計算された力（最大パワー × パワー比率）を加える
-        float calculatedPower = maxLaunchPower * Mathf.Clamp01(powerRatio);
+            Quaternion baseRotation = Quaternion.Euler(0f, MoveDirection, 0f);
+            Quaternion shotOffsetRotation = Quaternion.Euler(-basePitchAngle, finalYawOffset, 0f);
+
+            launchDirection = (baseRotation * shotOffsetRotation) * Vector3.forward;
+            calculatedPower = maxLaunchPower * Mathf.Clamp01(powerRatio);
+        }
+
+        // 3. 計算された力を加える
         targetRigidbody.AddForce(launchDirection * calculatedPower, forceMode);
 
-        // 6. 飛距離計測コンポーネントへの開始通知
+        // 4. 飛距離計測コンポーネントへの開始通知
         if (distanceCalculator != null)
         {
             distanceCalculator.StartMeasurement();

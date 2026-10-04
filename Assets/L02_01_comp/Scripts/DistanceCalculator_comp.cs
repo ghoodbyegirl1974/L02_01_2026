@@ -45,10 +45,19 @@ public class DistanceCalculator_comp : MonoBehaviour
     [Tooltip("カップまでの距離を表示するTextMeshProUGUI（任意）")]
     [SerializeField] private TextMeshProUGUI distanceToCupText;
 
+    // --- 【追加】New Record 表示用 UI オブジェクト ---
+    [Tooltip("New Record 達成時に表示する UI GameObject")]
+    [SerializeField] private GameObject newRecordObject;
+
     // --- 【追加参照】 ---
     [Header("Camera Animation References")]
     [Tooltip("カメラアニメーション制御用のBallCameraFollow_comp参照")]
     [SerializeField] private BallCameraFollow_comp ballCameraFollow;
+
+    // --- 【追加】ResultManager_comp 参照設定 ---
+    [Header("Result Management References")]
+    [Tooltip("結果記録管理用のResultManager_comp参照")]
+    [SerializeField] private ResultManager_comp resultManager;
 
     // --- 【外部参照用プロパティ】 ---
     /// <summary>
@@ -230,6 +239,27 @@ public class DistanceCalculator_comp : MonoBehaviour
         if (distanceToCupText != null)
         {
             distanceToCupText.gameObject.SetActive(visible);
+        }
+
+        // --- 【追加処理】UIを表示するタイミングかつ ResultManager がアタッチされている場合に CheckResult を実行 ---
+        if (visible && resultManager != null)
+        {
+            bool isNewBest = resultManager.CheckResult(DistanceToCup);
+            Debug.Log($"[DistanceCalculator] CheckResult 実行結果 (距離: {DistanceToCup}m, 最小値更新: {isNewBest})");
+
+            // isNewBest の値に連動して newRecordObject の表示・非表示を切り替え
+            if (newRecordObject != null)
+            {
+                newRecordObject.SetActive(isNewBest);
+            }
+        }
+        else
+        {
+            // UIを非表示にするタイミング（リセット時・発射開始時）では newRecordObject も非表示化
+            if (newRecordObject != null)
+            {
+                newRecordObject.SetActive(false);
+            }
         }
     }
 }
