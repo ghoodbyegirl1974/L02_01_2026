@@ -47,7 +47,10 @@ public class BallCameraFollow : MonoBehaviour
     private void LateUpdate()
     {
         // アニメーション移動中以外のみ、追随処理を実行
-        //L02_01_03 if文と、追随処理。
+        if (!isAnimating && target != null)
+        {
+            transform.position = target.transform.position + offset;
+        }
     }
 
     /// <summary>

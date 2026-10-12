@@ -6,7 +6,7 @@ using UnityEngine;
 public class ShotTrajectoryMarker : MonoBehaviour
 {
     [Header("References")]
-    [Tooltip("参照するBallLauncher")]
+    [Tooltip("参照するBallLauncher_comp")]
     [SerializeField] private BallLauncher ballLauncher;
 
     [Tooltip("到達地点に表示するマーカーオブジェクト")]
@@ -51,7 +51,7 @@ public class ShotTrajectoryMarker : MonoBehaviour
         if (ballLauncher == null || targetMarker == null) return;
         if (ballLauncher.TargetRigidbody == null) return;
 
-        // BallLauncher の公開プロパティからパラメータを取得
+        // BallLauncher_comp の公開プロパティからパラメータを取得
         Vector3 startPos = ballLauncher.InitialPosition;
         float pitchAngle = ballLauncher.BasePitchAngle;
         float moveDir = ballLauncher.MoveDirection;
@@ -71,7 +71,7 @@ public class ShotTrajectoryMarker : MonoBehaviour
         Vector3 gravity = Physics.gravity;
         bool hitGround = false;
         RaycastHit groundHit = default;
-
+        
         for (float t = 0f; t < maxSimulationTime; t += timeStep)
         {
             float nextT = t + timeStep;

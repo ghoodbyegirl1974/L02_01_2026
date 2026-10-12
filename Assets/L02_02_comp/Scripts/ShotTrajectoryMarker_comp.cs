@@ -71,7 +71,7 @@ public class ShotTrajectoryMarker_comp : MonoBehaviour
         Vector3 gravity = Physics.gravity;
         bool hitGround = false;
         RaycastHit groundHit = default;
-
+        
         for (float t = 0f; t < maxSimulationTime; t += timeStep)
         {
             float nextT = t + timeStep;

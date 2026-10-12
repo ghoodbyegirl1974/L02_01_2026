@@ -424,7 +424,10 @@ public class GolfShotUI : MonoBehaviour
     {
         yield return new WaitForSeconds(cameraSwitchDelay);
 
-        //L02_01_02 if文と、外部の関数の実行
+        if (cameraSwitcher != null)
+        {
+            cameraSwitcher.SwitchToSubCamera01();
+        }
     }
 
     private void ExecuteShotWithMiss()

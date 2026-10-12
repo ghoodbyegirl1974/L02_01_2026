@@ -2,6 +2,11 @@ using UnityEngine;
 
 public class BallLauncher : MonoBehaviour
 {
+    // --- 【追加】Debug設定 ---
+    [Header("Debug Settings")]
+    [Tooltip("trueの場合、MoveDirectionとbasePitchAngleのみ（ブレなし・パワー100%）で打ち出します")]
+    [SerializeField] private bool isDebug = false;
+
     [Header("Target Settings")]
     [SerializeField] private Rigidbody targetRigidbody;
     [SerializeField] private Vector3 initialPosition = new Vector3(0f, 15f, 0f);
@@ -31,7 +36,8 @@ public class BallLauncher : MonoBehaviour
     [Tooltip("飛距離計測コンポーネントへの参照")]
     [SerializeField] private DistanceCalculator distanceCalculator;
 
-    // --- 【外部参照用プロパティ（追加部分）】 ---
+    // --- 【外部参照用プロパティ】 ---
+    public bool IsDebug => isDebug;
     public Rigidbody TargetRigidbody => targetRigidbody;
     public Vector3 InitialPosition => initialPosition;
     public float MaxLaunchPower => maxLaunchPower;
@@ -89,9 +95,42 @@ public class BallLauncher : MonoBehaviour
     {
         if (targetRigidbody == null || !targetRigidbody.isKinematic) return;
 
-        //L02_01_01 AddForceを実装する。
+        // 1. 物理運動を開始（Kinematicを先に解除する）
+        targetRigidbody.isKinematic = false;
 
-        // 6. 飛距離計測コンポーネントへの開始通知
+        // 2. Kinematic解除後に速度をクリア
+        targetRigidbody.linearVelocity = Vector3.zero;
+        targetRigidbody.angularVelocity = Vector3.zero;
+
+        Vector3 launchDirection;
+        float calculatedPower;
+
+        if (isDebug)
+        {
+            // --- Debugモード時：MoveDirection と basePitchAngle のみ（パワー100%、ブレなし） ---
+            Quaternion baseRotation = Quaternion.Euler(0f, MoveDirection, 0f);
+            Quaternion shotOffsetRotation = Quaternion.Euler(-basePitchAngle, 0f, 0f);
+
+            launchDirection = (baseRotation * shotOffsetRotation) * Vector3.forward;
+            calculatedPower = maxLaunchPower;
+        }
+        else
+        {
+            // --- 通常モード時：従来の計算処理 ---
+            float appliedMaxYaw = isImpactZone ? maxZoneYawAngle : maxMissYawAngle;
+            float finalYawOffset = Mathf.Clamp(yawRatio, -1.0f, 1.0f) * appliedMaxYaw;
+
+            Quaternion baseRotation = Quaternion.Euler(0f, MoveDirection, 0f);
+            Quaternion shotOffsetRotation = Quaternion.Euler(-basePitchAngle, finalYawOffset, 0f);
+
+            launchDirection = (baseRotation * shotOffsetRotation) * Vector3.forward;
+            calculatedPower = maxLaunchPower * Mathf.Clamp01(powerRatio);
+        }
+
+        // 3. 計算された力を加える
+        targetRigidbody.AddForce(launchDirection * calculatedPower, forceMode);
+
+        // 4. 飛距離計測コンポーネントへの開始通知
         if (distanceCalculator != null)
         {
             distanceCalculator.StartMeasurement();
