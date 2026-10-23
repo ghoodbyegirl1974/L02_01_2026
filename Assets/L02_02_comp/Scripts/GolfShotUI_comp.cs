@@ -43,6 +43,11 @@ public class GolfShotUI_comp : MonoBehaviour
     [Header("Shot Target Settings")]
     [SerializeField] private BallLauncher_comp ballLauncher;
 
+    [Header("Character Animation Settings")]
+    [SerializeField] private CharacterAnimation_comp characterAnimation; // キャラクターアニメーション制御参照
+    [Tooltip("スイング開始からボールが発射されるまでの遅延時間（秒）")]
+    [SerializeField] private float shotImpactDelay = 0.5f;
+
     [Header("Camera Settings")]
     [SerializeField] private CameraSwitcher_comp cameraSwitcher; // カメラ切り替えコンポーネント参照
     [SerializeField] private float cameraSwitchDelay = 0.5f;     // ショット後、サブカメラに切り替えるまでの遅延時間(秒)
@@ -105,7 +110,8 @@ public class GolfShotUI_comp : MonoBehaviour
     private const float tapCooldown = 0.15f; // 150ミリ秒以内の連打・連続イベントをガード
 
     private Coroutine cameraSwitchCoroutine; // コルーチンの二重実行を防ぐためのキャッシュ変数
-    private Coroutine hideMessageCoroutine;  // 【追加】メッセージ消去用コルーチン
+    private Coroutine hideMessageCoroutine;  // メッセージ消去用コルーチン
+    private Coroutine launchBallCoroutine;   // アニメーション後のボール発射用コルーチン
 
     private void Awake()
     {
@@ -359,11 +365,28 @@ public class GolfShotUI_comp : MonoBehaviour
             impactMsg = "BAD SHOT!";
         }
 
-        // ショット結果に応じたメッセージオブジェクトの表示切り替え（タイマー消去付き）
-        ShowImpactMessage(impactMsg);
-
         float finalPowerRatio = selectedPower * powerMultiplier;
 
+        // スイングアニメーション再生開始
+        if (characterAnimation != null)
+        {
+            characterAnimation.PlaySwing();
+        }
+
+        // 指定時間待機後にメッセージ表示＆ボール発射
+        if (launchBallCoroutine != null) StopCoroutine(launchBallCoroutine);
+        launchBallCoroutine = StartCoroutine(LaunchBallDelayed(finalPowerRatio, yawRatio, isImpactZone, impactMsg));
+    }
+
+    /// <summary>
+    /// スイングアニメーションのタイマー待機後にUI更新およびボールを発射するコルーチン
+    /// </summary>
+    private IEnumerator LaunchBallDelayed(float finalPowerRatio, float yawRatio, bool isImpactZone, string impactMsg)
+    {
+        yield return new WaitForSeconds(shotImpactDelay);
+
+        // ショット結果に応じたメッセージ表示およびステータステキストの更新
+        ShowImpactMessage(impactMsg);
         UpdateStatusText($"{impactMsg} (Power: {Mathf.RoundToInt(finalPowerRatio * 100)}%, YawRatio: {yawRatio:F2}) - Press R to Reset");
 
         if (ballLauncher != null)
@@ -373,10 +396,12 @@ public class GolfShotUI_comp : MonoBehaviour
             if (cameraSwitchCoroutine != null) StopCoroutine(cameraSwitchCoroutine);
             cameraSwitchCoroutine = StartCoroutine(SwitchCameraDelayed());
         }
+
+        launchBallCoroutine = null;
     }
 
     /// <summary>
-    /// インパクト判定メッセージオブジェクトを表示し、一定時間後に自動で非表示にする（修正）
+    /// インパクト判定メッセージオブジェクトを表示し、一定時間後に自動で非表示にする
     /// </summary>
     private void ShowImpactMessage(string message)
     {
@@ -395,7 +420,7 @@ public class GolfShotUI_comp : MonoBehaviour
     }
 
     /// <summary>
-    /// 【追加】指定秒数経過後にメッセージを自動非表示にするコルーチン
+    /// 指定秒数経過後にメッセージを自動非表示にするコルーチン
     /// </summary>
     private IEnumerator HideImpactMessageAfterDelay()
     {
@@ -405,7 +430,7 @@ public class GolfShotUI_comp : MonoBehaviour
     }
 
     /// <summary>
-    /// 全てのインパクトメッセージオブジェクトを非表示（修正）
+    /// 全てのインパクトメッセージオブジェクトを非表示
     /// </summary>
     private void HideAllImpactMessages()
     {
@@ -447,6 +472,12 @@ public class GolfShotUI_comp : MonoBehaviour
             cameraSwitchCoroutine = null;
         }
 
+        if (launchBallCoroutine != null)
+        {
+            StopCoroutine(launchBallCoroutine);
+            launchBallCoroutine = null;
+        }
+
         if (cameraSwitcher != null)
         {
             cameraSwitcher.SwitchToMainCamera();
@@ -457,6 +488,12 @@ public class GolfShotUI_comp : MonoBehaviour
         if (ballLauncher != null)
         {
             ballLauncher.ResetBall();
+        }
+
+        // キャラクターアニメーションをIdle状態にリセット
+        if (characterAnimation != null)
+        {
+            characterAnimation.PlayIdle();
         }
 
         // SubCameraのアニメーション状態と回転を初期化
